@@ -4,6 +4,7 @@ class Question {
   final int correctAnswer;
   final String? explanation;
   final String? image;
+  final String? explanationImage;
 
   Question({
     required this.text,
@@ -11,6 +12,7 @@ class Question {
     required this.correctAnswer,
     this.explanation,
     this.image,
+    this.explanationImage,
   });
 
   factory Question.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Question {
       correctAnswer: json['correctAnswer'] ?? 0,
       explanation: json['explanation'],
       image: json['image'],
+      explanationImage: json['explanationImage'],
     );
   }
 
@@ -30,6 +33,7 @@ class Question {
       'correctAnswer': correctAnswer,
       'explanation': explanation,
       'image': image,
+      'explanationImage': explanationImage,
     };
   }
 }

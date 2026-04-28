@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:typed_data';
 import '../theme/glass_theme.dart';
 import '../models/exam.dart';
 import '../services/exam_service.dart';
@@ -23,6 +26,35 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
   
   List<Question> _questions = [];
   bool _isLoading = false;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<String?> _pickAndUploadImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return null;
+
+      setState(() => _isLoading = true);
+      
+      final bytes = await image.readAsBytes();
+      final ext = image.path.split('.').last;
+      final fileName = 'exam_images/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      
+      await Supabase.instance.client.storage
+          .from('attachments')
+          .uploadBinary(fileName, bytes);
+          
+      final url = Supabase.instance.client.storage
+          .from('attachments')
+          .getPublicUrl(fileName);
+      
+      setState(() => _isLoading = false);
+      return url;
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -88,6 +120,8 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
         options: ["Option A", "Option B", "Option C", "Option D"],
         correctAnswer: 0,
         explanation: "",
+        image: null,
+        explanationImage: null,
       ));
     });
   }
@@ -212,13 +246,30 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             ),
             SizedBox(height: 16),
             _buildQuestionTextField('Question Text (supports LaTeX)', (val) {
-              _questions[index] = Question(
-                text: val,
-                options: _questions[index].options,
-                correctAnswer: _questions[index].correctAnswer,
-                explanation: _questions[index].explanation,
-              );
+              setState(() {
+                _questions[index] = Question(
+                  text: val,
+                  options: _questions[index].options,
+                  correctAnswer: _questions[index].correctAnswer,
+                  explanation: _questions[index].explanation,
+                  image: _questions[index].image,
+                  explanationImage: _questions[index].explanationImage,
+                );
+              });
             }, question.text),
+            SizedBox(height: 12),
+            _buildImagePicker('Question Image', question.image, (url) {
+              setState(() {
+                _questions[index] = Question(
+                  text: _questions[index].text,
+                  options: _questions[index].options,
+                  correctAnswer: _questions[index].correctAnswer,
+                  explanation: _questions[index].explanation,
+                  image: url,
+                  explanationImage: _questions[index].explanationImage,
+                );
+              });
+            }),
             SizedBox(height: 12),
             // LaTeX Preview
             Container(
@@ -253,6 +304,8 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                             options: question.options,
                             correctAnswer: val!,
                             explanation: question.explanation,
+                            image: question.image,
+                            explanationImage: question.explanationImage,
                           );
                         });
                       },
@@ -272,6 +325,25 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                           fillColor: Colors.white.withOpacity(0.05),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          suffixIcon: question.options.length > 2 ? IconButton(
+                            icon: Icon(LucideIcons.minusCircle, size: 16, color: Colors.redAccent),
+                            onPressed: () {
+                              setState(() {
+                                List<String> newOptions = List.from(question.options);
+                                newOptions.removeAt(optIdx);
+                                int newCorrect = question.correctAnswer;
+                                if (newCorrect >= newOptions.length) newCorrect = newOptions.length - 1;
+                                _questions[index] = Question(
+                                  text: question.text,
+                                  options: newOptions,
+                                  correctAnswer: newCorrect,
+                                  explanation: question.explanation,
+                                  image: question.image,
+                                  explanationImage: question.explanationImage,
+                                );
+                              });
+                            },
+                          ) : null,
                         ),
                       ),
                     ),
@@ -279,15 +351,50 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                 ),
               );
             }).toList(),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  List<String> newOptions = List.from(question.options);
+                  newOptions.add("New Option");
+                  _questions[index] = Question(
+                    text: question.text,
+                    options: newOptions,
+                    correctAnswer: question.correctAnswer,
+                    explanation: question.explanation,
+                    image: question.image,
+                    explanationImage: question.explanationImage,
+                  );
+                });
+              },
+              icon: Icon(LucideIcons.plusCircle, size: 16, color: GlassTheme.primaryColor),
+              label: Text('Add Option', style: TextStyle(color: GlassTheme.primaryColor, fontSize: 12)),
+            ),
             SizedBox(height: 16),
             _buildQuestionTextField('Explanation', (val) {
-              _questions[index] = Question(
-                text: _questions[index].text,
-                options: _questions[index].options,
-                correctAnswer: _questions[index].correctAnswer,
-                explanation: val,
-              );
+              setState(() {
+                _questions[index] = Question(
+                  text: _questions[index].text,
+                  options: _questions[index].options,
+                  correctAnswer: _questions[index].correctAnswer,
+                  explanation: val,
+                  image: _questions[index].image,
+                  explanationImage: _questions[index].explanationImage,
+                );
+              });
             }, question.explanation ?? ''),
+            SizedBox(height: 12),
+            _buildImagePicker('Explanation Image', question.explanationImage, (url) {
+              setState(() {
+                _questions[index] = Question(
+                  text: _questions[index].text,
+                  options: _questions[index].options,
+                  correctAnswer: _questions[index].correctAnswer,
+                  explanation: _questions[index].explanation,
+                  image: _questions[index].image,
+                  explanationImage: url,
+                );
+              });
+            }),
           ],
         ),
       ),
@@ -311,6 +418,54 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker(String label, String? currentUrl, Function(String?) onImageSelected) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        if (currentUrl != null && currentUrl.isNotEmpty)
+          Stack(
+            children: [
+              Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  image: DecorationImage(image: NetworkImage(currentUrl), fit: BoxFit.contain),
+                ),
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: IconButton(
+                  icon: Icon(Icons.close, color: Colors.redAccent, size: 20),
+                  onPressed: () => onImageSelected(null),
+                  style: IconButton.styleFrom(backgroundColor: Colors.black54),
+                ),
+              ),
+            ],
+          ),
+        if (currentUrl == null || currentUrl.isEmpty)
+          ElevatedButton.icon(
+            onPressed: () async {
+              final url = await _pickAndUploadImage();
+              if (url != null) onImageSelected(url);
+            },
+            icon: Icon(LucideIcons.image, size: 16),
+            label: Text('Upload Image'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.05),
+              foregroundColor: Colors.white70,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        SizedBox(height: 8),
       ],
     );
   }

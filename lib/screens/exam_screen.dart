@@ -187,7 +187,7 @@ class _ExamScreenState extends State<ExamScreen> {
                     ),
                   ),
                 ),
-              if (_showExplanation) _buildExplanationCard(question.explanation!),
+              if (_showExplanation) _buildExplanationCard(question),
             ],
             SizedBox(height: 40),
             _buildFooter(),
@@ -229,6 +229,26 @@ class _ExamScreenState extends State<ExamScreen> {
             q.text,
             style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
           ),
+          if (q.image != null && q.image!.isNotEmpty) ...[
+            SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                q.image!,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 150,
+                    width: double.infinity,
+                    color: Colors.white.withOpacity(0.05),
+                    child: Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null, color: GlassTheme.primaryColor)),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -317,7 +337,7 @@ class _ExamScreenState extends State<ExamScreen> {
     );
   }
 
-  Widget _buildExplanationCard(String explanation) {
+  Widget _buildExplanationCard(Question q) {
     return GlassTheme.glassWrapper(
       opacity: 0.1,
       padding: EdgeInsets.all(24),
@@ -339,9 +359,29 @@ class _ExamScreenState extends State<ExamScreen> {
           ),
           SizedBox(height: 12),
           ExplanationText(
-            explanation,
+            q.explanation ?? '',
             style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
           ),
+          if (q.explanationImage != null && q.explanationImage!.isNotEmpty) ...[
+            SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                q.explanationImage!,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: 150,
+                    width: double.infinity,
+                    color: Colors.white.withOpacity(0.05),
+                    child: Center(child: CircularProgressIndicator(value: loadingProgress.expectedTotalBytes != null ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes! : null, color: GlassTheme.primaryColor)),
+                  );
+                },
+              ),
+            ),
+          ],
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.2, end: 0);
