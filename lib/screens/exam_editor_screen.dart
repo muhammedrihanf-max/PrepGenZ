@@ -28,6 +28,10 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
+  String _sanitizeText(String text) {
+    return text.replaceAll('\\cdot', '').replaceAll('.', '');
+  }
+
   Future<String?> _pickAndUploadImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -247,8 +251,9 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             SizedBox(height: 16),
             _buildQuestionTextField('Question Text (supports LaTeX)', (val) {
               setState(() {
+                final sanitized = _sanitizeText(val);
                 _questions[index] = Question(
-                  text: val,
+                  text: sanitized,
                   options: _questions[index].options,
                   correctAnswer: _questions[index].correctAnswer,
                   explanation: _questions[index].explanation,
@@ -290,60 +295,96 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             SizedBox(height: 8),
             ...question.options.asMap().entries.map((optEntry) {
               int optIdx = optEntry.key;
+              bool isCorrect = question.correctAnswer == optIdx;
+              
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
+                padding: const EdgeInsets.only(bottom: 12.0),
                 child: Row(
                   children: [
-                    Radio<int>(
-                      value: optIdx,
-                      groupValue: question.correctAnswer,
-                      onChanged: (val) {
+                    GestureDetector(
+                      onTap: () {
                         setState(() {
                           _questions[index] = Question(
                             text: question.text,
                             options: question.options,
-                            correctAnswer: val!,
+                            correctAnswer: optIdx,
                             explanation: question.explanation,
                             image: question.image,
                             explanationImage: question.explanationImage,
                           );
                         });
                       },
-                      activeColor: Colors.greenAccent,
+                      child: Container(
+                        padding: EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isCorrect ? Colors.greenAccent : Colors.white24,
+                            width: 2,
+                          ),
+                        ),
+                        child: CircleAvatar(
+                          radius: 8,
+                          backgroundColor: isCorrect ? Colors.greenAccent : Colors.transparent,
+                        ),
+                      ),
                     ),
+                    SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isCorrect ? Colors.greenAccent.withOpacity(0.05) : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCorrect ? Colors.greenAccent.withOpacity(0.3) : Colors.transparent,
+                          ),
+                        ),
+                        child: TextField(
                         onChanged: (val) {
-                          _questions[index].options[optIdx] = val;
+                          setState(() {
+                            _questions[index].options[optIdx] = _sanitizeText(val);
+                          });
                         },
-                        controller: TextEditingController(text: optEntry.value)..selection = TextSelection.collapsed(offset: optEntry.value.length),
-                        style: TextStyle(color: Colors.white, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Option ${String.fromCharCode(65 + optIdx)}',
-                          hintStyle: TextStyle(color: Colors.white24),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          suffixIcon: question.options.length > 2 ? IconButton(
-                            icon: Icon(LucideIcons.minusCircle, size: 16, color: Colors.redAccent),
-                            onPressed: () {
-                              setState(() {
-                                List<String> newOptions = List.from(question.options);
-                                newOptions.removeAt(optIdx);
-                                int newCorrect = question.correctAnswer;
-                                if (newCorrect >= newOptions.length) newCorrect = newOptions.length - 1;
-                                _questions[index] = Question(
-                                  text: question.text,
-                                  options: newOptions,
-                                  correctAnswer: newCorrect,
-                                  explanation: question.explanation,
-                                  image: question.image,
-                                  explanationImage: question.explanationImage,
-                                );
-                              });
-                            },
-                          ) : null,
+                          // We use a key to prevent controller re-initialization issues
+                          key: ValueKey('q_${index}_opt_${optIdx}'),
+                          controller: TextEditingController(text: optEntry.value)..selection = TextSelection.collapsed(offset: optEntry.value.length),
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: 'Option ${String.fromCharCode(65 + optIdx)}',
+                            hintStyle: TextStyle(color: Colors.white24),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isCorrect) 
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: Text('CORRECT', style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ),
+                                if (question.options.length > 2)
+                                  IconButton(
+                                    icon: Icon(LucideIcons.trash2, size: 16, color: Colors.redAccent.withOpacity(0.7)),
+                                    onPressed: () {
+                                      setState(() {
+                                        List<String> newOptions = List.from(question.options);
+                                        newOptions.removeAt(optIdx);
+                                        int newCorrect = question.correctAnswer;
+                                        if (newCorrect >= newOptions.length) newCorrect = newOptions.length - 1;
+                                        _questions[index] = Question(
+                                          text: question.text,
+                                          options: newOptions,
+                                          correctAnswer: newCorrect,
+                                          explanation: question.explanation,
+                                          image: question.image,
+                                          explanationImage: question.explanationImage,
+                                        );
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -372,11 +413,12 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             SizedBox(height: 16),
             _buildQuestionTextField('Explanation', (val) {
               setState(() {
+                final sanitized = _sanitizeText(val);
                 _questions[index] = Question(
                   text: _questions[index].text,
                   options: _questions[index].options,
                   correctAnswer: _questions[index].correctAnswer,
-                  explanation: val,
+                  explanation: sanitized,
                   image: _questions[index].image,
                   explanationImage: _questions[index].explanationImage,
                 );

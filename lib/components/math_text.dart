@@ -10,12 +10,28 @@ class MathText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!text.contains('\$')) {
+    final List<String> lines = text.split('\n');
+    
+    if (lines.length <= 1 && !text.contains('\$')) {
       return Text(text, style: style, textAlign: textAlign);
     }
 
+    return Column(
+      crossAxisAlignment: textAlign == TextAlign.center 
+          ? CrossAxisAlignment.center 
+          : (textAlign == TextAlign.right ? CrossAxisAlignment.end : CrossAxisAlignment.start),
+      children: lines.map((line) => _buildLine(line)).toList(),
+    );
+  }
+
+  Widget _buildLine(String line) {
+    if (line.isEmpty) return const SizedBox(height: 8);
+    if (!line.contains('\$')) {
+      return Text(line, style: style, textAlign: textAlign);
+    }
+
     final List<Widget> widgets = [];
-    final List<String> parts = text.split('\$');
+    final List<String> parts = line.split('\$');
 
     for (int i = 0; i < parts.length; i++) {
       if (i % 2 == 0) {
