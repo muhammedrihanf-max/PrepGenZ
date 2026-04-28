@@ -15,7 +15,7 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0' # Matches your current environment
+          flutter-version: '3.22.0'
           channel: 'stable'
 
       - name: Install dependencies
