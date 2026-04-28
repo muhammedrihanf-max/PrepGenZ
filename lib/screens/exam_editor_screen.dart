@@ -28,10 +28,6 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
 
-  String _sanitizeText(String text) {
-    return text.replaceAll('\\cdot', '').replaceAll('.', '');
-  }
-
   Future<String?> _pickAndUploadImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -58,6 +54,10 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
       return null;
     }
+  }
+
+  String _sanitize(String text) {
+    return text.replaceAll('\\cdot', '');
   }
 
   @override
@@ -251,7 +251,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             SizedBox(height: 16),
             _buildQuestionTextField('Question Text (supports LaTeX)', (val) {
               setState(() {
-                final sanitized = _sanitizeText(val);
+                final sanitized = _sanitize(val);
                 _questions[index] = Question(
                   text: sanitized,
                   options: _questions[index].options,
@@ -340,11 +340,11 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                           ),
                         ),
                         child: TextField(
-                        onChanged: (val) {
-                          setState(() {
-                            _questions[index].options[optIdx] = _sanitizeText(val);
-                          });
-                        },
+                          onChanged: (val) {
+                            setState(() {
+                              _questions[index].options[optIdx] = _sanitize(val);
+                            });
+                          },
                           // We use a key to prevent controller re-initialization issues
                           key: ValueKey('q_${index}_opt_${optIdx}'),
                           controller: TextEditingController(text: optEntry.value)..selection = TextSelection.collapsed(offset: optEntry.value.length),
@@ -413,7 +413,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
             SizedBox(height: 16),
             _buildQuestionTextField('Explanation', (val) {
               setState(() {
-                final sanitized = _sanitizeText(val);
+                final sanitized = _sanitize(val);
                 _questions[index] = Question(
                   text: _questions[index].text,
                   options: _questions[index].options,
