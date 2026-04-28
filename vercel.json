@@ -1,14 +1,4 @@
 {
-  "version": 2,
-  "public": true,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "cleanUrls": true,
-  "framework": null,
-  "buildCommand": null,
-  "installCommand": null
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
