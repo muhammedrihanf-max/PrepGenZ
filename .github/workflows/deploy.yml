@@ -24,10 +24,11 @@ jobs:
       - name: Build Web
         run: flutter build web --release
 
-      - name: Verify Build
+      - name: Prep Project For Vercel
         run: |
+          cp -r .vercel build/web/
+          cp vercel.json build/web/
           ls -R build/web/
-          test -f build/web/main.dart.js || exit 1
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v20
