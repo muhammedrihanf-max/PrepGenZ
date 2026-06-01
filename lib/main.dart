@@ -1,75 +1,96 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get_it/get_it.dart';
+import 'package:mathgame/src/ui/app/app.dart';
+import 'package:mathgame/src/ui/app/theme_provider.dart';
+import 'package:mathgame/src/ui/dashboard/dashboard_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:mathgame/src/core/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'services/auth_provider.dart';
-import 'services/push_notification_service.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/login_screen.dart';
-import 'theme/glass_theme.dart';
+import 'package:mathgame/src/core/ad_manager.dart';
 
-void main() async {
+// Uncomment the following lines when enabling Firebase Crashlytics
+// import 'package:firebase_core/firebase_core.dart';
+// import 'package:mathgame/firebase_options.dart';
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  try {
-    await Firebase.initializeApp();
-    await PushNotificationService.initialize();
-  } catch (e) {
-    debugPrint('Firebase initialization failed: $e');
-    // We continue so the app still works without FCM
-  }
-  
-  await Hive.initFlutter();
-  await Hive.openBox<String>('cached_exams');
-  await Hive.openBox<String>('pending_sync_queue');
-  
-  // Note: Replace with actual credentials from .env
-  await Supabase.initialize(
-    url: 'https://qcluejszrldmvllslzng.supabase.co',
-    anonKey: 'sb_publishable_-VTcEwtff1ujQpM5nu2ROQ_3_N8viw-',
-  );
+  AdManager.instance.initialize();
 
+  if (SupabaseConfig.isConfigured) {
+    try {
+      await Supabase.initialize(
+        url: SupabaseConfig.supabaseUrl,
+        anonKey: SupabaseConfig.supabaseAnonKey,
+      );
+    } catch (e) {
+      debugPrint("Supabase initialization failed: $e");
+    }
+  }
+
+  if (kDebugMode) {
+    Animate.restartOnHotReload = true;
+  }
+
+  FirebaseAnalytics? firebaseAnalytics;
+  FirebaseCrashlytics? crashlytics;
+
+  // To enable Firebase Crashlytics and Analytics, uncomment the following lines and
+  // the import statements at the top of this file.
+  // See the 'Crashlytics and Analytics' section of the main README.md file for details.
+
+  // try {
+  //   await Firebase.initializeApp(
+  //     options: DefaultFirebaseOptions.currentPlatform,
+  //   );
+  //   firebaseAnalytics = FirebaseAnalytics.instance;
+  //   crashlytics = FirebaseCrashlytics.instance;
+  // } catch (e) {
+  //   debugPrint("Firebase couldn't be initialized: $e");
+  // }
+
+  if (kDebugMode) {
+    await crashlytics?.setCrashlyticsCollectionEnabled(false);
+    await firebaseAnalytics?.setAnalyticsCollectionEnabled(false);
+  }
+
+  if (crashlytics != null) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterError;
+
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
+
+  final sharedPreferences = await SharedPreferences.getInstance();
+
+  setupServiceLocator(sharedPreferences);
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        // Provider<SharedPreferences>(create: (context) => sharedPreferences),
+        ChangeNotifierProvider(
+          create: (context) =>
+              ThemeProvider(sharedPreferences: sharedPreferences),
+        ),
+        ChangeNotifierProvider<DashboardProvider>(
+          create: (context) => GetIt.I.get<DashboardProvider>(),
+        )
       ],
-      child: const PrepGenZApp(),
+      child: MyApp(
+        firebaseAnalytics: firebaseAnalytics,
+      ),
     ),
   );
 }
 
-
-class PrepGenZApp extends StatelessWidget {
-  const PrepGenZApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'PrepGenZ',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: GlassTheme.primaryColor,
-        scaffoldBackgroundColor: GlassTheme.backgroundColor,
-        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-        useMaterial3: true,
-        textSelectionTheme: TextSelectionThemeData(
-          cursorColor: GlassTheme.primaryColor,
-          selectionColor: GlassTheme.primaryColor.withOpacity(0.3),
-          selectionHandleColor: GlassTheme.primaryColor,
-        ),
-      ),
-      home: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          if (auth.isLoading) {
-            return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          }
-          return auth.user != null ? DashboardScreen() : LoginScreen();
-        },
-      ),
-    );
-  }
+setupServiceLocator(SharedPreferences sharedPreferences) {
+  GetIt.I.registerSingleton<DashboardProvider>(
+      DashboardProvider(preferences: sharedPreferences));
 }
